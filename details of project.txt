@@ -1,0 +1,119 @@
+
+# Project: ID Card Detection and Face Verification
+
+This project is a comprehensive system designed to verify a person's identity by comparing the face on an ID card with a live photo. It uses a combination of object detection, facial recognition, and image enhancement techniques.
+
+## File-by-File Breakdown
+
+### 1. Main Application Logic (`ID_RESTARTED/src/`)
+
+This directory contains the core Python source code that drives the application.
+
+- **`main.py`**: This is the primary entry point and orchestrator for the entire verification pipeline.
+  - **Purpose**: To execute the complete sequence of operations: capturing images, enhancing them, and running the final face comparison.
+  - **Process**:
+    1.  Initializes the models (YOLO, PreCNN, Siamese Network).
+    2.  Calls the `capture_id_and_live()` function to interactively capture images from the user.
+    3.  Calls `enhance_id_folder()` to process and save the enhanced version of the face from the ID card.
+    4.  Calls `run_siamese_compare()` to perform the final verification and print the result (SAME person or DIFFERENT people).
+
+- **`inference/capture.py`**: A script dedicated to capturing high-quality images from the user's webcam.
+  - **Purpose**: To guide the user through capturing a clear image of their ID card and their face.
+  - **Functionality**:
+    - Uses OpenCV for camera access.
+    - Overlays a guide rectangle on the screen to help the user align the ID card and their face correctly.
+    - Performs real-time quality checks, including image sharpness (Laplacian variance) and brightness.
+    - Saves the best-quality captured ID card and a series of live face images to the `ID FACE/` and `LIVE FACE/` directories, respectively.
+
+- **`siamese_inference.py`**: This script performs the core face verification logic.
+  - **Purpose**: To compare the face from the ID card with the live captured face and determine if they match.
+  - **Process**:
+    1.  Loads the trained Siamese network (`SimeseNet`) and the face enhancement model (`PreCNN`).
+    2.  Calculates an "average" facial embedding (a numerical representation) for the set of ID faces and the set of live faces.
+    3.  Computes the cosine similarity between the two embeddings.
+    4.  Compares the similarity score against a predefined `THRESHOLD` to make the final verification decision.
+
+### 2. Model Definitions (`ID_RESTARTED/src/`)
+
+These files define the neural network architectures.
+
+- **`siamese_model.py`**: Defines the Siamese network used for face comparison.
+  - **`Encoder` class**: A ResNet-18 based network that takes an image and outputs a 128-dimensional vector (embedding) representing the face.
+  - **`SimeseNet` class**: A wrapper that holds two instances of the `Encoder` to process two images simultaneously.
+  - **`contrastive_loss` function**: The specialized loss function used to train the network, which pushes embeddings of the same person closer together and embeddings of different people further apart.
+
+- **`residual_attention.py`**: Defines the `PreCNN` model for image enhancement.
+  - **Purpose**: To improve the quality of face images, making them clearer and more robust for verification.
+  - **Architecture**: It uses a series of `ResidualCBAM` blocks. CBAM (Convolutional Block Attention Module) is an attention mechanism that helps the network focus on the most important spatial and channel-wise features of the face, effectively learning to enhance details and reduce noise.
+
+- **`face_encoder.py`**: Defines the `FaceEncoder` model.
+  - **Purpose**: This is likely an alternative or earlier version of the encoder used in the Siamese network. It also uses a ResNet-18 backbone to generate 128-D facial embeddings.
+
+- **`cnn_inferenc.py`**: A utility script for running inference with the `PreCNN` model.
+    - **Purpose**: To take a directory of images and enhance them using the trained `PreCNN` model, saving the results to an output directory. This is useful for testing the enhancement model in isolation.
+
+### 3. Model Training (`ID_RESTARTED/src/`)
+
+These scripts are used to train the various models in the project.
+
+- **`train_model.py`**: The script for training the `SimeseNet`.
+  - **Process**:
+    1.  Uses `PairDataset` to feed the model pairs of images.
+    2.  Optimizes the model using the `contrastive_loss` function and the Adam optimizer.
+    3.  Evaluates the model's performance using ROC AUC score and calculates the best similarity threshold for verification based on the F1 score.
+    4.  Saves the best performing model checkpoint.
+
+- **`train_precnn.py`**: The script for training the `PreCNN` face enhancement model.
+  - **Process**:
+    1.  Uses `FaceRestorationDataset`, which dynamically creates low-quality versions of clean face images (applying blur, noise, JPEG compression).
+    2.  Trains the `PreCNN` to reconstruct the clean image from the degraded one.
+    3.  Uses a combination of loss functions (L1, Perceptual, and Edge loss) to ensure the output is not only pixel-perfect but also visually sharp and realistic.
+
+- **`yolov11.py`**: The script to initiate training for the YOLOv11 object detection model.
+  - **Purpose**: To fine-tune a pre-trained YOLO model on a custom dataset to detect "id card" objects.
+  - **Functionality**: It loads the `yolo11n.pt` base model and uses the `config.yaml` file to find the training data and configure the training process.
+
+### 4. Data Preparation (`ID_RESTARTED/src/`)
+
+These scripts are for collecting, labeling, and formatting the data needed for training.
+
+- **`dataset_pairer.py`**:
+  - **`PairDataset` class**: A custom PyTorch Dataset class that generates pairs of images for training the Siamese network. It creates "positive" pairs (two different images of the same person) and "negative" pairs (images of two different people).
+
+- **`face_clean_gen.py`**:
+  - **Purpose**: To create a high-quality, consolidated dataset for training the `PreCNN` model.
+  - **Process**: It gathers images from various sources (`CelebA`, your `ID FACE` crops, and `LIVE FACE` captures), upscales smaller images to a consistent size, and copies them to a final clean directory.
+
+- **`label&split.py`**:
+  - **Purpose**: To process bounding box annotations for YOLO training.
+  - **Process**: It reads a CSV file of annotations, converts the `(xmin, ymin, xmax, ymax)` coordinates into the YOLO format (`center_x, center_y, width, height`), and then splits the dataset into training and testing sets.
+
+- **`save_img_&_label.py`**:
+  - **Purpose**: To organize the dataset into the specific folder structure required by the YOLO training framework.
+  - **Process**: It reads the CSV files from the previous step and copies the image files and their corresponding label `.txt` files into `train/images`, `train/labels`, `test/images`, and `test/labels` directories.
+
+### 5. Configuration (`ID_RESTARTED/config/`)
+
+- **`config.yaml`**: A configuration file for the YOLO model training.
+  - **`path`**: The root directory of the dataset.
+  - **`train`**: The path to the training images.
+  - **`val`**: The path to the validation images.
+  - **`nc`**: The number of classes to detect (1).
+  - **`names`**: A list of the class names (['id card']).
+
+### 6. Pre-trained Models (`ID_RESTARTED/models/`)
+
+- **`haarcascade_frontalface_default.xml`**: A pre-trained face detection model from OpenCV. It uses a classic, non-deep-learning method for detecting faces.
+- **`yolo11n.pt`**: A pre-trained, lightweight ("nano") YOLOv11 model that serves as the starting point for fine-tuning the custom ID card detector.
+
+### 7. Data Directories (`ID_RESTARTED/data/`)
+
+This directory holds all the data used in the project, from raw images to processed datasets.
+
+- **`celebA_negative/`**: Images of celebrities used as "negative" samples for training the Siamese network.
+- **`ID FACE/`**: Stores face crops extracted from ID cards.
+- **`ID FACE ENHACNED/`**: Stores the enhanced versions of the ID faces.
+- **`LIVE FACE/`**: Stores live photos captured from the webcam.
+- **`positives/`**: Contains images of the target person for training the Siamese network.
+- **`train_labels.csv` & `test_labels.csv`**: CSV files containing the bounding box annotations for the YOLO model.
+- **Other directories** (`dataset`, `faces_clean`, `images`, `labels`, etc.) are used as staging areas for the data preparation scripts.

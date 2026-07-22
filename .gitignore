@@ -1,0 +1,57 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Cextensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyTorch / Machine Learning Models & Heavy Artifacts
+*.pt
+*.pth
+*.onnx
+*.engine
+*.tflite
+*.pb
+*.h5
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE & Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temporary & Generated outputs
+ID_RESTARTED/data/
+ID_RESTARTED/runs/
+*.cache
+best_id_card.jpg
+last_verification_result.jpg
