@@ -81,6 +81,9 @@ Traditional attendance systems focus solely on passive logging. This system brid
     └── src/
         ├── main.py                    # Main pipeline orchestrator & demo
         ├── classroom_optimizer.py     # Dynamic Lecture Merging & Scheduling Engine
+        ├── milp_optimizer.py          # MILP Mathematical Scheduling Solver (Equations 1-5)
+        ├── energy_model.py            # ASHRAE Thermodynamic Energy & Utility Cost Model
+        ├── gradcam_visualizer.py      # Grad-CAM CBAM PreCNN Feature Heatmap Generator
         ├── residual_attention.py      # PreCNN Attention Model (CBAM + Residual blocks)
         ├── siamese_model.py           # Siamese Neural Network (Encoder + Contrastive Loss)
         ├── siamese_inference.py       # Offline face verification benchmark script
@@ -101,19 +104,17 @@ Traditional attendance systems focus solely on passive logging. This system brid
 
 ## ⚡ Key Innovations & Modules
 
-### 1. PreCNN Attention-Based Image Restoration (`residual_attention.py`)
+### 1. PreCNN Attention-Based Image Restoration (`residual_attention.py` & `gradcam_visualizer.py`)
 - Incorporates spatial and channel attention mechanisms (**CBAM**) combined with residual convolutional blocks (`ResidualCBAM`).
-- Enhances degraded, small, or compressed face crops from ID card photos to preserve identity-critical features.
+- Features a **Grad-CAM explainability generator** (`gradcam_visualizer.py`) to audit spatial attention maps over facial landmarks.
 
 ### 2. Siamese Verification Network (`siamese_model.py`)
 - Employs a ResNet-18 backbone projection head mapping face images into a 128-dimensional L2-normalized embedding space.
 - Optimized using **Contrastive Loss** to pull positive facial pairs together and push negative pairs apart.
 
-### 3. Dynamic Lecture Merging Engine (`classroom_optimizer.py`)
-- **Attendance Rate Thresholding**: Continuously monitors class sessions; flags sessions falling under an occupancy threshold (e.g., $<35\%$).
-- **Compatibility Matching**: Automatically pairs candidates matching the same subject, timeslot, and semester.
-- **Capacity Constraint Satisfaction**: Ensures the combined headcount fits into target room capacity before issuing reassignments.
-- **Facility Automation Payload**: Calculates estimated HVAC and lighting energy savings ($kWh$) and emits notification events for Faculty, Students, and Facilities Admin.
+### 3. MILP Dynamic Scheduling & Energy Engine (`milp_optimizer.py` & `energy_model.py`)
+- **Mathematical Optimization (MILP)**: Solves campus-wide room allocations via Mixed-Integer Linear Programming.
+- **ASHRAE Thermodynamic Modeling**: Computes thermal cooling load reduction, electrical kWh savings, and utility cost reductions for vacated rooms.
 
 ---
 
@@ -138,8 +139,8 @@ python -m venv .venv
 
 ### 3. Install Dependencies
 ```bash
-# Standard PyTorch installation
-pip install torch torchvision ultralytics facenet-pytorch opencv-python pillow pandas scikit-learn tqdm pyyaml
+# Standard dependencies & MILP solver:
+pip install torch torchvision ultralytics facenet-pytorch opencv-python pillow pandas scikit-learn tqdm pyyaml pulp
 
 # For NVIDIA RTX 50-series / Blackwell GPUs (CUDA 12.8 support):
 pip install --pre torch torchvision --index-url https://download.pytorch.org/whl/nightly/cu128 --force-reinstall
@@ -147,24 +148,38 @@ pip install --pre torch torchvision --index-url https://download.pytorch.org/whl
 
 ---
 
-## 💻 Usage
+## 💻 Comprehensive Testing Suite for Teammates
 
-### 1. Run Full End-to-End Pipeline
-Runs ID card detection, interactive webcam capture, PreCNN restoration, Siamese verification, and the Dynamic Classroom Optimization engine:
+Run the following test commands to verify each module independently or end-to-end:
+
+### Test 1: Full End-to-End Pipeline (Camera + Biometrics + Optimization + Energy + Grad-CAM)
 ```bash
 python ID_RESTARTED/src/main.py
 ```
 
-### 2. Test Dynamic Classroom Optimizer Standalone
-Simulates multi-classroom low-attendance scenarios and outputs merge recommendations, notifications, and energy savings:
+### Test 2: MILP Mathematical Optimization Solver
+```bash
+python ID_RESTARTED/src/milp_optimizer.py
+```
+
+### Test 3: ASHRAE Energy & Cost Calculation Model
+```bash
+python ID_RESTARTED/src/energy_model.py
+```
+
+### Test 4: Grad-CAM Feature Heatmap Explainability Generator
+```bash
+python ID_RESTARTED/src/gradcam_visualizer.py
+```
+
+### Test 5: Dynamic Lecture Merging Engine Standalone
 ```bash
 python ID_RESTARTED/src/classroom_optimizer.py
 ```
 
-### 3. Train YOLOv11 ID Card Detector (GPU)
-Fine-tunes YOLOv11 on custom ID card dataset:
+### Test 6: Offline Face Verification & Siamese Comparison Benchmark
 ```bash
-python ID_RESTARTED/src/yolov11.py
+python ID_RESTARTED/src/siamese_inference.py
 ```
 
 ---

@@ -11,6 +11,9 @@ import torch.nn.functional as F
 from residual_attention import PreCNN         # CBAM PreCNN you trained
 from siamese_model import SimeseNet           # your Siamese (class name intentionally 'SimeseNet')
 from classroom_optimizer import run_demo_optimization
+from milp_optimizer import run_milp_demo
+from energy_model import calculate_classroom_energy_savings
+from gradcam_visualizer import demo_gradcam_visualization
 
 # ---------- CONFIG ----------
 YOLO_WEIGHTS   = r"D:\python\ID CARD DETECTION\ID_RESTARTED\runs\detect\weights\best.pt"
@@ -367,3 +370,18 @@ if __name__ == "__main__":
     # 4) Dynamic Classroom Scheduling & Lecture Merging Optimization
     print("\n[OPTIMIZER] Executing Dynamic Classroom Allocation & Lecture Merging Engine...")
     run_demo_optimization(live_attendance_count=15)
+
+    # 5) MILP Mathematical Constraint Optimization & ASHRAE Energy Savings Evaluation
+    print("\n[MATH OPTIMIZER] Running Formal MILP Solver (Equations 1-5)...")
+    milp_res = run_milp_demo()
+    vacated_count = len(milp_res.get("vacated_rooms", []))
+    
+    print("\n[ENERGY EVALUATION] Calculating ASHRAE Thermodynamic Energy & Cost Savings...")
+    e_savings = calculate_classroom_energy_savings(vacated_rooms_count=max(1, vacated_count), duration_hours=1.0)
+    print(f" -> Thermal Load Saved    : {e_savings['total_thermal_load_saved_kw']} kW")
+    print(f" -> Electrical Energy     : {e_savings['electrical_energy_saved_kwh']} kWh saved per lecture hour")
+    print(f" -> Estimated Cost Saved  : ${e_savings['cost_savings_usd']} USD (₹{e_savings['cost_savings_inr']} INR)")
+
+    # 6) Model Explainability & Feature Heatmap Generation
+    print("\n[EXPLAINABILITY] Generating Grad-CAM Feature Heatmaps for PreCNN-CBAM Block...")
+    demo_gradcam_visualization()
