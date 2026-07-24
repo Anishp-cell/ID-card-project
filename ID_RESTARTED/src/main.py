@@ -267,7 +267,30 @@ def enhance_folder(precnn, device, in_dir, out_dir):
         cv2.imwrite(os.path.join(out_dir, name), enh)
     print(f"[ENH] Wrote enhanced crops to {os.path.abspath(out_dir)}")
 
-def save_comparison_visualization(sim, verdict):
+def calculate_match_probability(sim: float):
+    """
+    Calibrated Probabilistic Decision Model:
+    Converts cosine similarity into a calibrated probability P(Match) (%)
+    using a sigmoid activation centered at s0=0.65 with steepness k=20.
+    """
+    s0 = 0.65
+    k = 20.0
+    prob = 1.0 / (1.0 + np.exp(-k * (sim - s0)))
+    prob_pct = float(prob * 100.0)
+
+    if sim >= 0.70 or prob_pct >= 73.0:
+        verdict = "SAME person"
+        confidence_level = "HIGH CONFIDENCE MATCH"
+    elif sim >= 0.58 or prob_pct >= 20.0:
+        verdict = "PROBABLE MATCH"
+        confidence_level = "MODERATE CONFIDENCE (REVIEW SUGGESTED)"
+    else:
+        verdict = "DIFFERENT people"
+        confidence_level = "HIGH CONFIDENCE REJECTION"
+
+    return prob_pct, verdict, confidence_level
+
+def save_comparison_visualization(sim, verdict, prob_pct, confidence_level):
     id_paths = list_images(ID_ENH_DIR)
     live_paths = list_images(LIVE_ENH_DIR)
     
@@ -286,19 +309,25 @@ def save_comparison_visualization(sim, verdict):
     live_img = cv2.resize(live_img, size)
     
     canvas_w = 640
-    canvas_h = 430
+    canvas_h = 440
     canvas = np.zeros((canvas_h, canvas_w, 3), dtype=np.uint8) + 30
     
-    canvas[80:380, 15:315] = id_img
-    canvas[80:380, 325:625] = live_img
+    canvas[90:390, 15:315] = id_img
+    canvas[90:390, 325:625] = live_img
     
-    match_color = (0, 255, 0) if verdict == "SAME person" else (0, 0, 255)
+    if verdict == "SAME person":
+        match_color = (0, 255, 0)
+    elif verdict == "PROBABLE MATCH":
+        match_color = (0, 215, 255) # Yellow/Orange
+    else:
+        match_color = (0, 0, 255)
     
-    cv2.putText(canvas, f"Verdict: {verdict}", (15, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.75, match_color, 2, cv2.LINE_AA)
-    cv2.putText(canvas, f"Cosine Similarity: {sim:.4f} (Threshold: {THRESHOLD:.2f})", (15, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (220, 220, 220), 1, cv2.LINE_AA)
+    cv2.putText(canvas, f"Verdict: {verdict}", (15, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.75, match_color, 2, cv2.LINE_AA)
+    cv2.putText(canvas, f"Match Probability: {prob_pct:.1f}% ({confidence_level})", (15, 55), cv2.FONT_HERSHEY_SIMPLEX, 0.50, (255, 255, 255), 1, cv2.LINE_AA)
+    cv2.putText(canvas, f"Cosine Similarity: {sim:.4f}", (15, 75), cv2.FONT_HERSHEY_SIMPLEX, 0.50, (200, 200, 200), 1, cv2.LINE_AA)
     
-    cv2.putText(canvas, "ID Card Face (Enhanced)", (55, 405), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (200, 200, 200), 1, cv2.LINE_AA)
-    cv2.putText(canvas, "Live Face (Enhanced)", (365, 405), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (200, 200, 200), 1, cv2.LINE_AA)
+    cv2.putText(canvas, "ID Card Face (Enhanced)", (55, 415), cv2.FONT_HERSHEY_SIMPLEX, 0.52, (200, 200, 200), 1, cv2.LINE_AA)
+    cv2.putText(canvas, "Live Face (Enhanced)", (365, 415), cv2.FONT_HERSHEY_SIMPLEX, 0.52, (200, 200, 200), 1, cv2.LINE_AA)
     
     out_path = os.path.join(COMPARE_DIR, "manual_verification_comparison.jpg")
     cv2.imwrite(out_path, canvas)
@@ -345,9 +374,14 @@ def run_siamese_compare(device):
     z_live = mean_embedding_from_path(encoder, precnn, device, LIVE_DIR, enhance_both=True)
 
     sim = cosine(z_id, z_live)
-    verdict = "SAME person" if sim >= THRESHOLD else "DIFFERENT people"
-    print(f"[SIM] Cosine similarity: {sim:.4f} (thr={THRESHOLD:.2f})  ⇒  {verdict}")
-    save_comparison_visualization(sim, verdict)
+    prob_pct, verdict, confidence_level = calculate_match_probability(sim)
+    
+    print(f"\n[DECISION ALGO] Cosine Similarity: {sim:.4f}")
+    print(f"[DECISION ALGO] Calibrated Match Probability: {prob_pct:.2f}%")
+    print(f"[DECISION ALGO] Confidence Classification: {confidence_level}")
+    print(f"[DECISION ALGO] Final Verdict: ==> {verdict} <==")
+    
+    save_comparison_visualization(sim, verdict, prob_pct, confidence_level)
     return sim, verdict
 
 # ---------- MAIN ----------
